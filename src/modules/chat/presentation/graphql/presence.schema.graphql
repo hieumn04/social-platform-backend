@@ -1,0 +1,26 @@
+"""
+Presence status for a single user.
+"""
+type PresenceStatus {
+  userId: ID!
+
+  """True while the user has at least one active WebSocket connection."""
+  online: Boolean!
+
+  """
+  Unix-ms timestamp (as a string) of the last confirmed activity.
+  null when the user has never connected or the 3-day activity window has expired.
+  """
+  lastActiveAt: String
+}
+
+extend type Query {
+  """Fetch real-time presence status for a single user."""
+  getPresence(userId: ID!): PresenceStatus!
+
+  """
+  Fetch presence status for multiple users in one request.
+  Uses cluster-aware batching — safe for large id lists.
+  """
+  getMultiplePresences(userIds: [ID!]!): [PresenceStatus!]!
+}

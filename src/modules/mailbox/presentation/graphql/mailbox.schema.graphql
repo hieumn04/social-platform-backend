@@ -1,0 +1,36 @@
+type SlideMailbox {
+  iris_inactive_subscription_uq_seq_id: String!
+  unread_thread_count: Int!
+  unread_state_seq: String!
+  threads_by_folder: SlideThreadConnection
+  pinned_threads_v2: [SlideThread!]
+}
+
+type UnreadThreadSummary {
+  unread_thread_count: Int!
+  unread_state_seq: String!
+}
+
+type SlideThread {
+  id: ID!
+  thread_title: String
+  is_pin: Boolean
+}
+
+type MailboxEvent {
+  seq: String!
+  userId: String!
+  threadId: String!
+  eventType: Int!
+  messageId: String
+  actorId: String
+  createdAt: String!
+}
+
+extend type Query {
+  get_unread_thread_summary: UnreadThreadSummary!
+  get_mailbox_events_after_seq(
+    since_seq: String!
+    limit: Int
+  ): [MailboxEvent!]!
+}

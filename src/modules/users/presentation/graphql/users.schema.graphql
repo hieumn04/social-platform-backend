@@ -1,0 +1,22 @@
+type FriendshipStatus {
+  is_restricted: Boolean
+  blocking: Boolean
+}
+
+type User {
+  id: ID!
+  interop_messaging_user_fbid: String
+  username: String
+  full_name: String
+  is_verified: Boolean
+  profile_pic_url: String
+  friendship_status: FriendshipStatus
+}
+
+type Viewer {
+  id: ID!
+  interop_messaging_user_fbid: String
+  profile_pic_url: String
+  username: String
+  full_name: String
+}

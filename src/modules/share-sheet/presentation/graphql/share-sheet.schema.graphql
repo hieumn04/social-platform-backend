@@ -1,0 +1,47 @@
+enum ShareSheetView {
+  RESHARE_SHARE_SHEET
+}
+
+input ShareSheetRankingInput {
+  count_per_page: Int = 20
+  is_private_share: Boolean = false
+  views: [ShareSheetView!] = [RESHARE_SHARE_SHEET]
+}
+
+type ShareSheetUserEntity {
+  id: ID!
+  username: String!
+  full_name: String!
+  profile_pic_url: String
+  is_verified: Boolean!
+}
+
+type ShareSheetThreadEntity {
+  id: ID!
+  title: String
+  profile_pic_url: String
+}
+
+type ShareSheetEntities {
+  user: [ShareSheetUserEntity!]!
+  thread: [ShareSheetThreadEntity!]!
+}
+
+type ShareSheetScoreMapEntry {
+  id: ID!
+}
+
+type ShareSheetRankingBucket {
+  score_map: [ShareSheetScoreMapEntry!]!
+}
+
+type ShareSheetRankingPayload {
+  entities: ShareSheetEntities!
+  ranking: [ShareSheetRankingBucket!]!
+}
+
+extend type Query {
+  get_share_sheet_ranking(
+    input: ShareSheetRankingInput!
+  ): ShareSheetRankingPayload!
+}

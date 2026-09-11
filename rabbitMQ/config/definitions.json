@@ -1,0 +1,104 @@
+{
+  "users": [
+    {
+      "name": "${RABBITMQ_USER}",
+      "password": "${RABBITMQ_PASS}",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [{ "name": "/" }, { "name": "${RABBITMQ_VHOST}" }],
+  "permissions": [
+    {
+      "user": "${RABBITMQ_USER}",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "${RABBITMQ_USER}",
+      "vhost": "${RABBITMQ_VHOST}",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "queues": [
+    {
+      "name": "chat.1on1.queue",
+      "vhost": "${RABBITMQ_VHOST}",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "chat.group.queue",
+      "vhost": "${RABBITMQ_VHOST}",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "chat.notification.queue",
+      "vhost": "${RABBITMQ_VHOST}",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "chat.1on1.exchange",
+      "vhost": "${RABBITMQ_VHOST}",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "chat.group.exchange",
+      "vhost": "${RABBITMQ_VHOST}",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "chat.notification.exchange",
+      "vhost": "${RABBITMQ_VHOST}",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "chat.1on1.exchange",
+      "destination": "chat.1on1.queue",
+      "destination_type": "queue",
+      "routing_key": "chat.1on1",
+      "vhost": "${RABBITMQ_VHOST}",
+      "arguments": {}
+    },
+    {
+      "source": "chat.group.exchange",
+      "destination": "chat.group.queue",
+      "destination_type": "queue",
+      "routing_key": "chat.group",
+      "vhost": "${RABBITMQ_VHOST}",
+      "arguments": {}
+    },
+    {
+      "source": "chat.notification.exchange",
+      "destination": "chat.notification.queue",
+      "destination_type": "queue",
+      "routing_key": "",
+      "vhost": "${RABBITMQ_VHOST}",
+      "arguments": {}
+    }
+  ]
+}

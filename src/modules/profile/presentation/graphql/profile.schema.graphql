@@ -1,0 +1,25 @@
+type ProfileInitialViewer {
+  id: ID!
+}
+
+type ProfileInitialUser {
+  id: ID!
+  username: String!
+  full_name: String!
+  biography: String
+  profile_pic_url: String
+  is_verified: Boolean!
+  is_private: Boolean!
+  follower_count: Int!
+  following_count: Int!
+  friendship_status: FriendshipStatus!
+}
+
+type ProfileInitialPayload {
+  viewer: ProfileInitialViewer!
+  profile: ProfileInitialUser!
+}
+
+extend type Query {
+  get_profile_initial(userID: ID!): ProfileInitialPayload!
+}

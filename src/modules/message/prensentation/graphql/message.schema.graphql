@@ -1,0 +1,202 @@
+enum MessageType {
+  TEXT
+  IMAGES
+  MESSAGE_INLINE_SHARE
+  MEDIA
+  XMA
+}
+
+# Global lifecycle state of a message.
+# DELIVERED is intentionally absent — delivery state is derived from:
+#   message.timestamp_ms <= participant.delivery_watermark_timestamp_ms
+enum MessageStatus {
+  SENT
+  FAILED
+}
+
+# =========================
+# MESSAGE CORE TYPES
+# =========================
+type SlideMessage {
+  id: ID!
+  message_id: ID!
+  thread_fbid: ID!
+  offline_threading_id: String!
+
+  sender_fbid: String!
+  timestamp_ms: String!
+
+  content_type: String
+
+  text_body: String
+  igd_snippet: String
+
+  expiration_timestamp_ms: String
+  view_expiration_timestamp_ms: String
+
+  content: SlideMessageContent
+  replied_to_message_id: ID
+}
+
+# =========================
+# MESSAGE CONTENT (UNION)
+# =========================
+union SlideMessageContent =
+  | SlideMessageText
+  | SlideMessageXMAContent
+  | SlideMessageImageContent
+  | SlideMessageImage
+  | SlideMessageVideo
+  | SlideMessageSticker
+
+type SlideMessageText {
+  text_body: String
+}
+
+type SlideMessageXMAContent {
+  payload: String
+}
+
+type SlideMessageImageContent {
+  attachments: [SlideMessageImageAttachment!]!
+}
+
+type SlideMessageImageAttachment {
+  attachment_fbid: ID!
+  attachment_type: Int
+  attachment_cdn_url: String!
+  preview_cdn_url: String
+  mime_type: String
+  size_bytes: String
+  width: Int
+  height: Int
+}
+
+type SlideMessageImage {
+  url: String
+  width: Int
+  height: Int
+}
+
+type SlideMessageVideo {
+  url: String
+  duration: Int
+  thumbnail: String
+}
+
+type SlideMessageSticker {
+  sticker_id: String
+}
+
+# =========================
+# CONNECTION (PAGINATION)
+# =========================
+type SlideMessageEdge {
+  cursor: String!
+  node: SlideMessage!
+}
+
+type SlideMessageConnection {
+  edges: [SlideMessageEdge!]!
+  page_info: PageInfo!
+}
+
+# =========================
+# INPUT / RESPONSE TYPES
+# =========================
+input SlideMessageTextInput {
+  sensitive_string_value: String!
+}
+
+input SlideMessageAttachmentInput {
+  upload_id: ID!
+  width: Int
+  height: Int
+}
+
+input SlideMessageInlineShareInput {
+  target_type: String!
+  target_id: ID!
+  selected_media_id: ID
+}
+
+input SendSlideMessageInput {
+  ig_thread_igid: ID
+  offline_threading_id: String!
+  recipient_igids: [ID!]
+  replied_to_client_context: String
+  replied_to_item_id: String
+  reply_to_message_id: String
+  sampled: Boolean
+  text: SlideMessageTextInput
+  content_type: MessageType
+  attachments: [SlideMessageAttachmentInput!]
+  inline_share: SlideMessageInlineShareInput
+  mentions: [String!]
+  mentioned_user_ids: [ID!]
+  commands: String
+  forwarded_from_thread_id: ID
+  is_forwarded_from_own_message: Boolean
+  send_attribution: String
+}
+
+input CreateDirectMediaUploadInput {
+  thread_fbid: ID!
+  content_type: String!
+  content_length: Int!
+  width: Int
+  height: Int
+}
+
+type DirectMediaUploadHeader {
+  name: String!
+  value: String!
+}
+
+type DirectMediaUploadSession {
+  upload_id: ID!
+  object_key: String!
+  upload_url: String!
+  upload_headers: [DirectMediaUploadHeader!]!
+  expires_at: String!
+}
+
+input ResumeDirectMediaUploadInput {
+  thread_fbid: ID!
+  upload_id: ID!
+}
+
+enum DirectMediaUploadResumeState {
+  NEEDS_UPLOAD
+  ALREADY_UPLOADED
+  ATTACHED
+  EXPIRED
+}
+
+type DirectMediaUploadResumeResult {
+  upload_id: ID!
+  object_key: String!
+  state: DirectMediaUploadResumeState!
+  object_exists: Boolean!
+  upload_url: String
+  upload_headers: [DirectMediaUploadHeader!]!
+  expires_at: String!
+  attached_message_id: ID
+}
+
+type DirectMessageSendStatus {
+  exists: Boolean!
+  message_id: ID
+  timestamp_ms: String
+  conversation_id: ID!
+}
+
+type SlideMessageSendResponse {
+  message_id: String!
+  timestamp_ms: String!
+  id: String!
+}
+
+type XigDirectTextSendWithSlideMessagingResponse {
+  xig_direct_text_send_with_slide_messaging_response: SlideMessageSendResponse
+}

@@ -1,0 +1,12 @@
+export enum PermissionResource {
+  USER = 'USER',
+  ROLE = 'ROLE',
+  PERMISSION = 'PERMISSION',
+  PRODUCT = 'PRODUCT',
+  ORDER = 'ORDER',
+  CATEGORY = 'CATEGORY',
+  INVENTORY = 'INVENTORY',
+  REPORT = 'REPORT',
+  DASHBOARD = 'DASHBOARD',
+  SETTINGS = 'SETTINGS',
+}

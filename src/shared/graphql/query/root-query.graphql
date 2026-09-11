@@ -1,0 +1,9 @@
+# root-query.graphql
+type Query {
+  _empty: String
+}
+
+# root-mutation.graphql
+type Mutation {
+  _empty: String
+}

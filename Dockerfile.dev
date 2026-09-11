@@ -1,0 +1,22 @@
+FROM node:22-alpine AS dependencies
+
+WORKDIR /usr/src/app
+
+# Native dependencies such as bcrypt may need a compiler while npm installs.
+# This toolchain stays in the build stage and is not copied to the final image.
+RUN apk add --no-cache python3 make g++
+
+COPY package*.json ./
+RUN npm ci && npm cache clean --force
+
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+# Only lightweight runtime/debugging tools remain in the development image.
+RUN apk add --no-cache bash procps
+
+COPY --from=dependencies /usr/src/app/node_modules ./node_modules
+COPY package*.json tsconfig*.json nest-cli.json eslint.config.mjs .prettierrc ./
+
+CMD ["npm", "run", "start:dev"]

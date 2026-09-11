@@ -1,0 +1,19 @@
+extend type Query {
+  get_slide_thread_nullable(
+    threadFbid: ID
+    thread_fbid: ID
+    message_count: Int = 20
+    before: String
+    min_uq_seq_id: String
+  ): SlideThread
+
+  get_slide_thread_messages(
+    thread_fbid: ID!
+    first: Int = 20
+    before: String
+  ): SlideMessageConnection!
+
+  get_slide_mailbox_for_iris_subscription(
+    device_id_for_iris_subscription: String!
+  ): SlideMailbox
+}

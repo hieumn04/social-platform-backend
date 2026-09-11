@@ -1,0 +1,98 @@
+services:
+  redis-node1:
+    image: redis:7.2.4
+    container_name: redis-node1
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.11
+    ports:
+      - '7100:7100'
+      - '17100:17100'
+    volumes:
+      - ./data/node1:/data
+      - ./conf/redis-node1.conf:/data/redis.conf
+
+  redis-node2:
+    image: redis:7.2.4
+    container_name: redis-node2
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.12
+    ports:
+      - '7101:7101'
+      - '17101:17101'
+    volumes:
+      - ./data/node2:/data
+      - ./conf/redis-node2.conf:/data/redis.conf
+
+  redis-node3:
+    image: redis:7.2.4
+    container_name: redis-node3
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.13
+    ports:
+      - '7102:7102'
+      - '17102:17102'
+    volumes:
+      - ./data/node3:/data
+      - ./conf/redis-node3.conf:/data/redis.conf
+
+  redis-node4:
+    image: redis:7.2.4
+    container_name: redis-node4
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.14
+    ports:
+      - '7103:7103'
+      - '17103:17103'
+    volumes:
+      - ./data/node4:/data
+      - ./conf/redis-node4.conf:/data/redis.conf
+
+  redis-node5:
+    image: redis:7.2.4
+    container_name: redis-node5
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.15
+    ports:
+      - '7104:7104'
+      - '17104:17104'
+    volumes:
+      - ./data/node5:/data
+      - ./conf/redis-node5.conf:/data/redis.conf
+
+  redis-node6:
+    image: redis:7.2.4
+    container_name: redis-node6
+    user: root
+    command: redis-server /data/redis.conf
+    networks:
+      redis-cluster-net:
+        ipv4_address: 172.30.0.16
+    ports:
+      - '7105:7105'
+      - '17105:17105'
+    volumes:
+      - ./data/node6:/data
+      - ./conf/redis-node6.conf:/data/redis.conf
+
+networks:
+  redis-cluster-net:
+    name: redis-cluster-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

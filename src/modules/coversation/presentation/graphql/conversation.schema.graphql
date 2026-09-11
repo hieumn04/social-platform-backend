@@ -1,0 +1,102 @@
+type SlideThread {
+  id: ID!
+  as_ig_direct_thread: IGDirectThread
+}
+
+type SlideThreadNode {
+  id: ID!
+  as_ig_direct_thread: IGDirectThread!
+}
+
+type SlideThreadEdge {
+  cursor: String
+  node: SlideThreadNode!
+}
+
+type SlideThreadConnection {
+  edges: [SlideThreadEdge!]!
+  page_info: PageInfo
+}
+
+
+type IGDirectThread {
+  id: ID!
+  thread_fbid: ID!
+  thread_id: String
+  thread_key: String
+
+  viewer_id: String!
+
+  thread_title: String
+  thread_image_url: String
+  thread_subtype: String
+
+
+  is_pin: Boolean
+  is_group: Boolean
+  is_muted: Boolean
+  marked_as_unread: Boolean
+
+  messaging_folder_tag: String
+  folder: String
+  system_folder: String
+
+  last_activity_timestamp_ms: String
+  reachability_status: String
+
+
+  users: [User!]!
+  viewer: Viewer!
+
+  nicknames: [String!]!
+  instamadillo_cutover: String
+
+
+  slide_read_receipts: [ReadReceipt!]
+
+  slide_messages: SlideMessageConnection
+}
+
+type ReadReceipt {
+  participant_fbid: String!
+  watermark_timestamp_ms: String!
+  watermark_message_id: String
+}
+
+type PageInfo {
+  has_next_page: Boolean!
+  end_cursor: String
+  has_previous_page: Boolean
+  start_cursor: String
+}
+
+
+# =========================
+# MARK SEEN
+# =========================
+
+input MarkSeenMetadataInput {
+  ig_thread_igid: ID!
+}
+
+input MarkSeenDataInput {
+  item_id: String
+  message_id: String!
+  message_timestamp_ms: String
+}
+
+type XFBSlideReadReceipt {
+  participant_fbid: String!
+  watermark_timestamp_ms: String!
+  watermark_message_id: String
+  thread_unread: Boolean!
+  unread_thread_count: Int!
+  unread_state_seq: String!
+}
+
+extend type Mutation {
+  xig_direct_item_seen_mutation_with_slide_messaging_response(
+    metadata: MarkSeenMetadataInput!
+    data: MarkSeenDataInput!
+  ): XFBSlideReadReceipt
+}

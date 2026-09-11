@@ -1,0 +1,34 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: nestjs-api
+    command:
+      - node
+      - scripts/dev-watch.cjs
+    env_file:
+      - .env.development
+      # IP map auto-generated bởi create-cluster.sh — dùng IP trực tiếp để bypass Docker DNS
+      - path: .redis-nodes-ip.env
+        required: false # Không crash nếu chưa có file (lần đầu chạy)
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./test:/usr/src/app/test
+      - ./logs:/usr/src/app/logs
+      - ./scripts/dev-watch.cjs:/usr/src/app/scripts/dev-watch.cjs:ro
+      - ./.env.development:/usr/src/app/.env.development:ro
+    environment:
+      # GIÚP NESTJS BÊN TRONG DOCKER NHÌN THẤY DB/RABBITMQ BÊN NGOÀI HOST WINDOWS
+      - DB_HOST=host.docker.internal
+
+      - REDIS_HOST=host.docker.internal
+    networks:
+      - redis-cluster-net
+
+# Bắt thẳng vào network do file create-cluster.sh tạo ra
+networks:
+  redis-cluster-net:
+    external: true

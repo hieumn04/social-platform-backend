@@ -1,0 +1,19 @@
+# slide_message.mutations.graphql
+extend type Mutation {
+  send_slide_message(
+    input: SendSlideMessageInput!
+  ): XigDirectTextSendWithSlideMessagingResponse
+
+  create_direct_media_upload(
+    input: CreateDirectMediaUploadInput!
+  ): DirectMediaUploadSession!
+
+  resume_direct_media_upload(
+    input: ResumeDirectMediaUploadInput!
+  ): DirectMediaUploadResumeResult!
+
+  get_direct_message_send_status(
+    thread_fbid: ID!
+    offline_threading_id: String!
+  ): DirectMessageSendStatus!
+}

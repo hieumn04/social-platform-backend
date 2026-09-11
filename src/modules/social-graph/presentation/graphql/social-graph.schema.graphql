@@ -1,0 +1,24 @@
+extend type FriendshipStatus {
+  following: Boolean!
+  outgoing_request: Boolean!
+  incoming_request: Boolean!
+  followed_by: Boolean!
+  is_bestie: Boolean!
+  is_private: Boolean!
+  is_feed_favorite: Boolean!
+  blocked_by: Boolean!
+}
+
+type XdtCreateFriendshipPayload {
+  id: ID!
+  username: String!
+  friendship_status: FriendshipStatus!
+}
+
+extend type Mutation {
+  xdt_create_friendship(
+    target_user_id: ID!
+    container_module: String
+    nav_chain: String
+  ): XdtCreateFriendshipPayload!
+}

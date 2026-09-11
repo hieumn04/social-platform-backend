@@ -1,0 +1,15 @@
+node_modules
+dist
+logs
+*.log
+.git
+.gitignore
+.env*
+.redis*.env
+npm-debug.log*
+README.md
+generate-*.js
+rabbitMQ
+redis-cluster-auto
+redis-local
+test
