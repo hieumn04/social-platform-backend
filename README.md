@@ -1,48 +1,152 @@
-# Instagram-style social backend
+# Instagram-style Social Backend
 
-A portfolio backend focused on the difficult parts of a social product: relationship state, ranked recipient discovery, cursor-based direct messaging, realtime delivery and a secure email-signup flow. The application uses NestJS with DDD-style module boundaries rather than a single CRUD layer.
+[![Backend CI](https://github.com/hieumn04/social-platform-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/hieumn04/social-platform-backend/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
-## Implemented scope
+A portfolio backend that recreates the engineering-heavy parts of an Instagram-style social product: relationship state, ranked recipient discovery, secure OTP signup, cursor-based direct messaging, private media and realtime delivery.
 
-- Social graph: follow public users, request private users, friendship status, block, restrict, mute and close-friend persistence.
-- Profiles: initial profile payload by immutable `userID`, privacy-aware relationship state and post metadata.
-- Messaging: inbox/thread reads, cursor pagination, idempotent sends, media upload lifecycle, seen watermarks, unread state, presence and Socket.IO events.
-- Discovery: one-character recipient search and share-sheet ranking from direct-message affinity, recency and follow signals.
-- Authentication: JWT access/refresh handling, username availability and Redis-backed email OTP signup.
-- Infrastructure: MySQL, Redis, Redis Cluster, RabbitMQ, Cloudflare R2-compatible storage, Swagger and persisted GraphQL operations.
+## Why this project is interesting
 
-## Architecture
+- **Hybrid API:** REST for auth/search, allowlisted persisted GraphQL for composed social data, and Socket.IO for realtime events.
+- **Two Redis roles:** standalone Redis for OTP/JWT/rate limiting; Redis Cluster for messaging cache, presence, streams and locks.
+- **Reliable messaging:** idempotency keys, opaque cursors, transactional writes, seen watermarks and versioned unread state.
+- **Private media:** direct-to-R2 uploads, server-side `HEAD` verification and short-lived signed delivery URLs.
 
-Each business module separates `domain`, `application`, `infrastructure` and `presentation`. Domain/application code owns decisions; repositories isolate persistence; HTTP/GraphQL adapters derive the actor from the authenticated request. Read-heavy profile and ranking paths use parameterized SQL, while transactional writes use TypeORM repositories/transactions.
+## System at a glance
 
-```text
-request -> controller/resolver -> use case -> domain policy -> repository
-                                      |              |
-                                      +-> Redis/RMQ  +-> MySQL / R2
+```mermaid
+flowchart LR
+    Client["Next.js client"]
+
+    subgraph Interfaces[API interfaces]
+        REST["REST<br/>Auth · OTP · Search"]
+        GQL["Persisted GraphQL<br/>Profile · Follow · Messaging"]
+        WS["Socket.IO<br/>Message · Typing · Presence"]
+    end
+
+    subgraph Core[NestJS application]
+        UC["Use cases"]
+        Domain["Domain policies"]
+        Worker["Redis Stream workers"]
+    end
+
+    Client --> REST --> UC
+    Client --> GQL --> UC
+    Client <--> WS
+    WS --> UC
+    UC --> Domain
+
+    UC --> MySQL[(MySQL)]
+    UC --> Redis[(Standalone Redis)]
+    UC --> Cluster[(Redis Cluster)]
+    UC --> R2[(Cloudflare R2)]
+    Cluster --> Worker --> WS
 ```
 
-The active relationship implementation is `src/modules/social-graph`; older experimental modules are not imported by `AppModule`.
+## Tech stack
 
-## Security decisions
+| Area              | Technologies                                                  | Role                                                        |
+| ----------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| Runtime           | Node.js 20, TypeScript 5.7, NestJS 11                         | Modular backend and dependency injection                    |
+| API               | REST, Apollo GraphQL, persisted `doc_id`, Socket.IO           | HTTP, typed composed reads and realtime communication       |
+| Data              | MySQL 8.4, TypeORM, parameterized raw SQL                     | Transactions plus optimized read projections                |
+| Distributed state | Redis 7.4, Redis Cluster, Redis Streams, distributed locks    | Auth state, cache, presence, unread state and delivery work |
+| Object storage    | Cloudflare R2, AWS S3 SDK                                     | Presigned private-media upload and delivery                 |
+| Security          | Passport JWT, bcrypt, HttpOnly cookies, Helmet, rate limiting | Authentication and request/session protection               |
+| Delivery          | Web Push, Nodemailer                                          | Browser notifications and OTP email                         |
+| Tooling           | Docker Compose, Swagger, Jest, GitHub Actions                 | Local infrastructure, API discovery and CI verification     |
 
-- Persisted GraphQL allow-list (`doc_id`); direct query documents are rejected.
-- JWT-derived actor IDs prevent following or reading as another user.
-- Signup session is a random opaque token stored only in a scoped `HttpOnly`, `SameSite=Strict` cookie.
-- Redis stores a hash of the session token and an HMAC of the OTP, with device binding, 10-minute TTL, 60-second resend cooldown and five-attempt limit.
-- Secrets and generated Redis state are ignored; public configuration is placeholder-only.
+## Implemented features
 
-## Run locally
+| Area          | Working scope                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| Social graph  | Follow public accounts, request private accounts, viewer-relative friendship status          |
+| Profile       | Initial profile by immutable `userID`, privacy, counters and friendship state                |
+| Discovery     | One-character recipient search, existing-thread resolution and share-sheet ranking           |
+| Messaging     | Mailbox/thread reads, opaque cursor pagination, idempotent text/image/inline-share sends     |
+| Message state | Send status, seen watermarks, unread summaries, cache invalidation and Redis Stream delivery |
+| Realtime      | Authenticated Socket.IO, presence, heartbeat and typing events                               |
+| Signup        | Username availability, OTP request/status/resend/verify, account registration                |
+| Media         | Presigned R2 upload, MIME/size/dimension checks, `HEAD` verification and signed reads        |
 
-Requirements: Node.js 20+, npm, Docker Desktop and Git Bash/WSL for the Redis Cluster setup script.
+## API design
+
+| Surface           | Used for                                                                        | Entry point                           |
+| ----------------- | ------------------------------------------------------------------------------- | ------------------------------------- |
+| REST              | Login/refresh/logout, OTP, username check, recipient search, push subscriptions | Resource routes such as `/auth/otp/*` |
+| Persisted GraphQL | Follow, profile, ranking, mailbox, messages, media and presence                 | `POST /api/graphql`                   |
+| Socket.IO         | Live messages, typing, seen and presence                                        | `WS_PATH` / `WS_NAMESPACE`            |
+
+The public GraphQL endpoint accepts only registered numeric `doc_id` operations:
+
+```json
+{
+  "doc_id": "28949219061332276",
+  "variables": {
+    "userID": "50344278754"
+  }
+}
+```
+
+Raw query documents and unknown IDs are rejected. Actor/viewer identity comes from JWT, not client variables. The internal Apollo endpoint disables Playground and introspection and limits query depth to five.
+
+## Redis design
+
+```mermaid
+flowchart LR
+    API[NestJS]
+
+    subgraph Single[Standalone Redis]
+        Active["cacheRedis<br/>OTP · JWT/session keys · rate limits"]
+        Prepared["session / queue / token DBs<br/>prepared isolation boundaries"]
+    end
+
+    subgraph Cluster[Redis Cluster: 3 masters + 3 replicas]
+        Hot["Recent messages<br/>Inbox ordering"]
+        State["Watermarks · Unread versions<br/>Presence"]
+        Async["Redis Streams<br/>Distributed locks"]
+    end
+
+    API --> Active
+    API -.-> Prepared
+    API --> Hot
+    API --> State
+    API --> Async
+```
+
+Four standalone logical clients are initialized, but current auth/rate-limit paths primarily use `cacheRedis`; the other clients are prepared boundaries. Redis Cluster is active in messaging and realtime state. This distinction is intentional in the documentation so the portfolio does not overclaim implementation scope.
+
+## Architecture and correctness
+
+Core modules use DDD-style `presentation → application → domain → repository` boundaries. Read-heavy profile/search/ranking paths use parameterized SQL; transactional message and relationship writes use TypeORM repositories and transactions.
+
+Key correctness decisions:
+
+- `offline_threading_id` prevents duplicate messages during client retries.
+- Message history uses opaque cursors instead of unstable offset pagination.
+- Stable object keys are cached; expiring private delivery URLs are generated after cache reads.
+- Media becomes attached only after membership checks and R2 object verification.
+- Signup keeps its opaque session in a scoped `HttpOnly; SameSite=Strict` cookie.
+- Redis stores an HMAC of the OTP and a hash of the signup session token.
+
+See [Architecture](docs/ARCHITECTURE.md) for DDD boundaries, Redis topology, message sequence, high-level ER diagram and runtime status.
+
+## Quick start
+
+Requirements: Node.js 20+, npm, Docker Desktop and Git Bash/WSL for Redis Cluster initialization.
 
 ```powershell
 Copy-Item .env.example .env.development
 Copy-Item .redis-cluster.env.example .redis-cluster.env
 npm ci --legacy-peer-deps
-docker compose -f docker-compose.infrastructure.yml --env-file .env.development up -d
+
+docker compose -f docker-compose.infrastructure.yml --env-file .env.development up -d mysql redis
 ```
 
-MySQL imports `database/init/001-schema.sql` and `002-roles.sql` only when its volume is created for the first time. Then initialize the Redis Cluster:
+Replace placeholder JWT, OTP, email, database, Redis, VAPID and R2 values in `.env.development`, then initialize the cluster from Git Bash or WSL:
 
 ```bash
 cd redis-cluster-auto
@@ -50,18 +154,21 @@ bash create-cluster.sh
 cd ..
 ```
 
-Update `.env.development` with your own JWT, OTP, email, VAPID and R2 credentials, then run:
+> The cluster script recreates local cluster containers and generated cluster data. Use it only to initialize or intentionally rebuild the development cluster.
+
+Start the API:
 
 ```powershell
 npm run start:dev
 ```
 
-- API: `http://localhost:3000`
-- Swagger: `http://localhost:3000/api/docs`
-- Persisted GraphQL: `POST http://localhost:3000/api/graphql`
-- RabbitMQ management: `http://localhost:15672`
+| Development endpoint | URL                                      |
+| -------------------- | ---------------------------------------- |
+| API                  | `http://localhost:3000`                  |
+| Swagger UI           | `http://localhost:3000/api`              |
+| Persisted GraphQL    | `POST http://localhost:3000/api/graphql` |
 
-See [API examples](docs/API_EXAMPLES.md) for follow, profile, ranking, search and signup contracts.
+Swagger is available outside production. Authenticated examples require `Authorization: Bearer <access-token>`; signup requests must retain the `signup_session` cookie.
 
 ## Verification
 
@@ -69,12 +176,27 @@ See [API examples](docs/API_EXAMPLES.md) for follow, profile, ranking, search an
 npm run build
 npm test -- --runInBand
 npm run test:e2e -- --runInBand
+docker build -t instagram-style-social-backend .
 ```
 
-Current baseline: 25 unit suites / 79 tests and 1 E2E suite / 2 tests.
+- **25/25 unit suites — 79/79 tests**
+- **1/1 E2E suite — 2/2 tests**
+- CI verifies install, build, tests and the production Docker image
 
-## Known limits
+## Documentation
 
-- The schema file is a baseline for a fresh portfolio environment; subsequent production changes should be versioned as migrations.
-- The current Nest 11 Express adapter has an upstream Multer advisory with no non-breaking fix reported by npm. Upload size/type validation and presigned R2 uploads reduce exposure; migration to the patched framework line should be evaluated separately.
-- Posts have persistence/profile metadata, but a complete create/edit/delete/feed product is outside this portfolio scope.
+- [Architecture and data flow](docs/ARCHITECTURE.md)
+- [API examples and persisted operation catalog](docs/API_EXAMPLES.md)
+- [Direct-message media flow](docs/direct-message-media-flow.md)
+- [Database bootstrap schema](database/init/001-schema.sql)
+- [GitHub Actions workflow](.github/workflows/ci.yml)
+
+## Current boundaries
+
+- Posts have schema/persistence foundations; complete CRUD, profile grid and feed ranking are not implemented.
+- Unfollow, accept-request and block use cases exist but are not public persisted operations yet.
+- Restrict, mute and close-friend relationships currently provide domain/persistence foundations.
+- RabbitMQ infrastructure is prepared but is not in the active application graph; message delivery uses Redis Streams and Socket.IO.
+- Development diagnostic controllers should be removed or guarded before a public deployment.
+
+This project intentionally favors a smaller set of end-to-end, technically deep flows over a large number of shallow CRUD modules.

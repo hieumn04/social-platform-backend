@@ -14,12 +14,12 @@ This adds `IMAGES` and `MESSAGE_INLINE_SHARE`, creates
 
 ## Image message
 
-1. The browser calls persisted query `29000000000000003` once for each image.
+1. The browser calls persisted mutation `29000000000000003` once for each image.
 2. The backend checks thread membership, MIME type, size (maximum 15 MB), and
    dimensions, then creates a 15-minute `PENDING` upload session.
 3. The browser sends `PUT` directly to the returned R2 URL with every returned
    header. The image never passes through NestJS.
-4. The browser calls send-message query `27548200411446444` with
+4. The browser calls persisted send-message mutation `27548200411446444` with
    `content_type: IMAGES` and 1-10 `upload_id` values.
 5. The backend performs R2 `HEAD` validation (owner, upload ID, MIME type and
    byte length).

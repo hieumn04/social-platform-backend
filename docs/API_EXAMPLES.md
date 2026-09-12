@@ -2,6 +2,39 @@
 
 Authenticated requests use `Authorization: Bearer <access-token>`. The persisted GraphQL endpoint accepts only registered `doc_id` values; raw query strings are rejected.
 
+Unless a section says otherwise, persisted operations are sent to:
+
+```http
+POST http://localhost:3000/api/graphql
+Content-Type: application/json
+Authorization: Bearer <access-token>
+```
+
+`variables` must be a JSON object. It may be empty for an operation that has no variables.
+
+## Persisted operation catalog
+
+| `doc_id`            | Operation                                  |
+| ------------------- | ------------------------------------------ |
+| `36000282336225392` | Resolve a direct viewer thread             |
+| `35214111628203068` | Open a slide thread                        |
+| `35214111628203069` | Load a cursor-paginated message page       |
+| `27313801781553196` | Send a slide message (compatible ID)       |
+| `27548200411446444` | Send a slide message                       |
+| `26472232189128878` | Load the slide mailbox                     |
+| `27356881703909995` | Mark a thread as seen                      |
+| `28000000000000001` | Get one user's presence                    |
+| `28000000000000002` | Get multiple users' presence               |
+| `29000000000000003` | Create a direct-media upload session       |
+| `29000000000000004` | Resume a direct-media upload session       |
+| `29000000000000005` | Get idempotent message send status         |
+| `30000000000000001` | Get unread-thread summary                  |
+| `26508036048874888` | Follow a user or request a private account |
+| `28949219061332276` | Load the initial profile payload           |
+| `26933070283055509` | Rank share-sheet recipients                |
+
+The registry in `src/shared/graphql/persisted-queries.registry.ts` is the source of truth. Unknown or non-numeric IDs return `400 Bad Request`.
+
 ## Follow a user
 
 `POST /api/graphql`
