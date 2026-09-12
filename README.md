@@ -11,7 +11,7 @@ A portfolio backend that recreates the engineering-heavy parts of an Instagram-s
 ## Why this project is interesting
 
 - **Hybrid API:** REST for auth/search, allowlisted persisted GraphQL for composed social data, and Socket.IO for realtime events.
-- **Two Redis roles:** standalone Redis for OTP/JWT/rate limiting; Redis Cluster for messaging cache, presence, streams and locks.
+- **Two Redis roles:** standalone Redis for OTP/JWT/rate limiting; Redis Cluster for messaging cache, presence and stream delivery.
 - **Reliable messaging:** idempotency keys, opaque cursors, transactional writes, seen watermarks and versioned unread state.
 - **Private media:** direct-to-R2 uploads, server-side `HEAD` verification and short-lived signed delivery URLs.
 
@@ -28,8 +28,9 @@ flowchart LR
     end
 
     subgraph Core[NestJS application]
-        UC["Use cases"]
+        UC["Use cases / application services"]
         Domain["Domain policies"]
+        Repo["Repository adapters"]
         Worker["Redis Stream workers"]
     end
 
@@ -38,8 +39,9 @@ flowchart LR
     Client <--> WS
     WS --> UC
     UC --> Domain
+    UC --> Repo
 
-    UC --> MySQL[(MySQL)]
+    Repo --> MySQL[(MySQL)]
     UC --> Redis[(Standalone Redis)]
     UC --> Cluster[(Redis Cluster)]
     UC --> R2[(Cloudflare R2)]
@@ -53,7 +55,7 @@ flowchart LR
 | Runtime           | Node.js 20, TypeScript 5.7, NestJS 11                         | Modular backend and dependency injection                    |
 | API               | REST, Apollo GraphQL, persisted `doc_id`, Socket.IO           | HTTP, typed composed reads and realtime communication       |
 | Data              | MySQL 8.4, TypeORM, parameterized raw SQL                     | Transactions plus optimized read projections                |
-| Distributed state | Redis 7.4, Redis Cluster, Redis Streams, distributed locks    | Auth state, cache, presence, unread state and delivery work |
+| Distributed state | Redis 7.4, Redis Cluster, Redis Streams                       | Auth state, cache, presence, unread state and delivery work |
 | Object storage    | Cloudflare R2, AWS S3 SDK                                     | Presigned private-media upload and delivery                 |
 | Security          | Passport JWT, bcrypt, HttpOnly cookies, Helmet, rate limiting | Authentication and request/session protection               |
 | Delivery          | Web Push, Nodemailer                                          | Browser notifications and OTP email                         |
@@ -107,7 +109,8 @@ flowchart LR
     subgraph Cluster[Redis Cluster: 3 masters + 3 replicas]
         Hot["Recent messages<br/>Inbox ordering"]
         State["Watermarks · Unread versions<br/>Presence"]
-        Async["Redis Streams<br/>Distributed locks"]
+        Async["Redis Streams<br/>Delivery work"]
+        Lock["Lock service<br/>prepared foundation"]
     end
 
     API --> Active
@@ -115,6 +118,7 @@ flowchart LR
     API --> Hot
     API --> State
     API --> Async
+    API -.-> Lock
 ```
 
 Four standalone logical clients are initialized, but current auth/rate-limit paths primarily use `cacheRedis`; the other clients are prepared boundaries. Redis Cluster is active in messaging and realtime state. This distinction is intentional in the documentation so the portfolio does not overclaim implementation scope.
@@ -125,6 +129,7 @@ Core modules use DDD-style `presentation → application → domain → reposito
 
 Key correctness decisions:
 
+- Route-level authentication uses `JwtAuthGuard` for persisted GraphQL and protected REST endpoints; refresh-token operations additionally use `SessionGuard` and `CsrfGuard`.
 - `offline_threading_id` prevents duplicate messages during client retries.
 - Message history uses opaque cursors instead of unstable offset pagination.
 - Stable object keys are cached; expiring private delivery URLs are generated after cache reads.

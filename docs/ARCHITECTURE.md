@@ -83,7 +83,7 @@ flowchart TB
         ReadState[Watermarks<br/>Unread versions]
         Presence[Presence<br/>Connection metadata]
         Streams[Redis Streams<br/>Delivery work]
-        Locks[Distributed locks]
+        Locks[Distributed lock service<br/>prepared foundation]
     end
 
     App --> Cache
@@ -94,10 +94,10 @@ flowchart TB
     App --> ReadState
     App --> Presence
     App --> Streams
-    App --> Locks
+    App -. prepared .-> Locks
 ```
 
-Four standalone clients are initialized against separate logical databases. Current authentication and rate-limit paths still primarily use `cacheRedis`; the remaining clients are prepared isolation boundaries. Redis Cluster is active on messaging, presence, stream and coordination paths.
+Four standalone clients are initialized against separate logical databases. Current authentication and rate-limit paths still primarily use `cacheRedis`; the remaining clients are prepared isolation boundaries. Redis Cluster is active on messaging, presence and stream paths. A Redis-backed lock service exists and is wired as a provider, but no active use case consumes it yet.
 
 ## Message write and delivery
 
@@ -143,8 +143,10 @@ Cached message payloads contain stable storage keys. Signed delivery URLs are ge
 
 ```mermaid
 erDiagram
-    USERS ||--o{ FOLLOW_EDGE : follows
-    USERS ||--o{ FOLLOW_REQUEST_EDGE : requests
+    USERS ||--o{ FOLLOW_EDGE : follower
+    USERS ||--o{ FOLLOW_EDGE : following
+    USERS ||--o{ FOLLOW_REQUEST_EDGE : requester
+    USERS ||--o{ FOLLOW_REQUEST_EDGE : target
     USERS ||--o{ CONVERSATION_PARTICIPANTS : joins
     CONVERSATIONS ||--o{ CONVERSATION_PARTICIPANTS : contains
     CONVERSATIONS ||--o{ DIRECT_MESSAGES : contains
@@ -161,6 +163,7 @@ The complete fresh-environment schema is in `database/init/001-schema.sql`.
 ## Security boundaries
 
 - JWT authentication supplies actor/viewer identity; client variables do not control it.
+- `JwtAuthGuard` protects persisted GraphQL and protected REST routes; refresh-token operations additionally use `SessionGuard` and `CsrfGuard`.
 - Persisted GraphQL limits the public operation set.
 - Signup uses a scoped `HttpOnly`, `SameSite=Strict` cookie instead of exposing a session JTI to JavaScript.
 - Redis stores a hash of the opaque signup token and an HMAC of the OTP.
@@ -177,6 +180,7 @@ The complete fresh-environment schema is in `database/init/001-schema.sql`.
 | Profile, share-sheet, mailbox and messaging    | Public persisted GraphQL operations                                     |
 | OTP, auth, username check and recipient search | REST endpoints                                                          |
 | Presence, typing and message fan-out           | Socket.IO/Redis runtime path                                            |
+| Distributed lock service                       | Infrastructure foundation; not consumed by an active use case           |
 | Unfollow, accept request and block             | Application use cases exist; not public persisted operations yet        |
 | Restrict, mute and close friend                | Domain/persistence foundation                                           |
 | Posts                                          | Schema/persistence foundation; no complete CRUD/feed                    |
