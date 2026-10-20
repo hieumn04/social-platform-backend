@@ -27,7 +27,7 @@ export class SearchRecipientsUseCase {
   async execute(
     viewerId: string,
     query: string,
-    limit = 20,
+    limit = 10,
   ): Promise<SearchRecipientsResult> {
     const normalizedQuery = query.trim().toLocaleLowerCase();
 
@@ -37,9 +37,9 @@ export class SearchRecipientsUseCase {
       );
     }
 
-    if (!Number.isInteger(limit) || limit < 1 || limit > 30) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10) {
       throw new BadRequestException(
-        'limit must be an integer between 1 and 30',
+        'limit must be an integer between 1 and 10',
       );
     }
 

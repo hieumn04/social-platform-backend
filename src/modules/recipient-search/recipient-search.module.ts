@@ -5,9 +5,10 @@ import { RecipientSearchController } from '@/modules/recipient-search/presentati
 import { AuthGuardsModule } from '@/modules/auth/guards/auth-guards.module';
 import { DatabaseModule } from '@/shared/database/database.module';
 import { Module } from '@nestjs/common';
+import { SearchInfrastructureModule } from '@/shared/search/search-infrastructure.module';
 
 @Module({
-  imports: [DatabaseModule, AuthGuardsModule],
+  imports: [DatabaseModule, AuthGuardsModule, SearchInfrastructureModule],
   controllers: [RecipientSearchController],
   providers: [
     {

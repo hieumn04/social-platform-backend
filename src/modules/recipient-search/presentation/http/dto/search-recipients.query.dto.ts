@@ -19,6 +19,6 @@ export class SearchRecipientsQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(30)
-  limit = 20;
+  @Max(10)
+  limit = 10;
 }

@@ -31,7 +31,7 @@ describe('SearchRecipientsUseCase', () => {
       },
     ]);
 
-    await expect(useCase.execute('10', '  ZHOU  ', 20)).resolves.toEqual({
+    await expect(useCase.execute('10', '  ZHOU  ', 10)).resolves.toEqual({
       query: 'zhou',
       ranked_recipients: [
         {
@@ -54,7 +54,7 @@ describe('SearchRecipientsUseCase', () => {
         },
       ],
     });
-    expect(repository.search).toHaveBeenCalledWith('10', 'zhou', 20);
+    expect(repository.search).toHaveBeenCalledWith('10', 'zhou', 10);
   });
 
   it('accepts a one-character query', async () => {
@@ -64,7 +64,7 @@ describe('SearchRecipientsUseCase', () => {
       query: 'z',
       ranked_recipients: [],
     });
-    expect(repository.search).toHaveBeenCalledWith('10', 'z', 20);
+    expect(repository.search).toHaveBeenCalledWith('10', 'z', 10);
   });
 
   it.each(['', '   ', 'a'.repeat(51)])(
@@ -77,7 +77,7 @@ describe('SearchRecipientsUseCase', () => {
     },
   );
 
-  it.each([0, 1.5, 31])('rejects invalid limit %p', async (limit) => {
+  it.each([0, 1.5, 11])('rejects invalid limit %p', async (limit) => {
     await expect(useCase.execute('10', 'zh', limit)).rejects.toBeInstanceOf(
       BadRequestException,
     );
