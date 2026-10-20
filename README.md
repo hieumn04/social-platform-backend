@@ -148,10 +148,14 @@ Copy-Item .env.example .env.development
 Copy-Item .redis-cluster.env.example .redis-cluster.env
 npm ci --legacy-peer-deps
 
-docker compose -f docker-compose.infrastructure.yml --env-file .env.development up -d mysql redis
+docker compose -f .\redis-local\docker-compose.yml up -d
+docker compose -f .\docker-compose.elasticsearch.yml up -d
 ```
 
-Replace placeholder JWT, OTP, email, database, Redis, VAPID and R2 values in `.env.development`, then initialize the cluster from Git Bash or WSL:
+MySQL runs directly on the development machine; make sure the MySQL 8.4
+instance configured by `DB_HOST` and `DB_PORT` is available. Replace placeholder
+JWT, OTP, email, database, Redis, Elasticsearch, VAPID and R2 values in
+`.env.development`, then initialize the Redis Cluster from Git Bash or WSL:
 
 ```bash
 cd redis-cluster-auto

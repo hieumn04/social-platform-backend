@@ -12,6 +12,7 @@ import { appConfig } from '@/shared/config/app.config';
 import { databaseConfig } from '@/shared/config/database.config';
 import { webpushConfig } from './webpush.config';
 import { r2Config } from './r2.config';
+import { elasticsearchConfig } from './elasticsearch.config';
 
 @Injectable()
 export class NestConfigService implements OnModuleInit {
@@ -42,6 +43,8 @@ export class NestConfigService implements OnModuleInit {
     private readonly webpushCfg: ConfigType<typeof webpushConfig>,
     @Inject(r2Config.KEY)
     private readonly r2Cfg: ConfigType<typeof r2Config>,
+    @Inject(elasticsearchConfig.KEY)
+    private readonly elasticsearchCfg: ConfigType<typeof elasticsearchConfig>,
   ) {}
 
   onModuleInit() {
@@ -56,6 +59,7 @@ export class NestConfigService implements OnModuleInit {
     this.validateConfig(this.redisClusterCfg, 'redisClusterConfig');
     this.validateConfig(this.webpushCfg, 'webpushConfig');
     this.validateConfig(this.r2Cfg, 'r2Config');
+    this.validateConfig(this.elasticsearchCfg, 'elasticsearchConfig');
     console.log('[Config]  All configs loaded successfully');
   }
 
@@ -110,5 +114,9 @@ export class NestConfigService implements OnModuleInit {
 
   get r2() {
     return this.r2Cfg;
+  }
+
+  get elasticsearch() {
+    return this.elasticsearchCfg;
   }
 }

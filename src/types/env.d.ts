@@ -14,6 +14,16 @@ declare namespace NodeJS {
     TYPEORM_RETRY_ATTEMPTS?: string;
     TYPEORM_RETRY_DELAY?: string;
 
+    ELASTICSEARCH_ENABLED?: 'true' | 'false';
+    ELASTICSEARCH_READ_ENABLED?: 'true' | 'false';
+    ELASTICSEARCH_NODE?: string;
+    ELASTICSEARCH_USERNAME?: string;
+    ELASTICSEARCH_PASSWORD?: string;
+    ELASTICSEARCH_USER_INDEX_BASE?: string;
+    ELASTICSEARCH_USER_INDEX_VERSION?: string;
+    ELASTICSEARCH_OUTBOX_POLL_MS?: string;
+    ELASTICSEARCH_OUTBOX_BATCH_SIZE?: string;
+
     ACCESS_TOKEN_SECRET: string;
     ACCESS_TOKEN_EXPIRES_IN?: SignOptions['expiresIn'];
 

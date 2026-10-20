@@ -15,6 +15,7 @@ import { appConfig } from '@/shared/config/app.config';
 import { databaseConfig } from '@/shared/config/database.config';
 import { webpushConfig } from './webpush.config';
 import { r2Config } from './r2.config';
+import { elasticsearchConfig } from './elasticsearch.config';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { r2Config } from './r2.config';
         socketConfig,
         webpushConfig,
         r2Config,
+        elasticsearchConfig,
       ],
       validationSchema,
       cache: true,

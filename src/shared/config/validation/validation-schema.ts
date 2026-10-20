@@ -20,6 +20,30 @@ export const validationSchema = Joi.object({
   TYPEORM_SYNC: Joi.boolean().default(false),
   TYPEORM_LOG: Joi.boolean().default(false),
 
+  ELASTICSEARCH_ENABLED: Joi.boolean().default(false),
+  ELASTICSEARCH_READ_ENABLED: Joi.boolean()
+    .default(false)
+    .when('ELASTICSEARCH_ENABLED', {
+      is: false,
+      then: Joi.valid(false).messages({
+        'any.only':
+          'ELASTICSEARCH_READ_ENABLED requires ELASTICSEARCH_ENABLED=true',
+      }),
+    }),
+  ELASTICSEARCH_NODE: Joi.string().uri().default('http://localhost:9200'),
+  ELASTICSEARCH_USERNAME: Joi.string().allow('').optional(),
+  ELASTICSEARCH_PASSWORD: Joi.string().allow('').optional(),
+  ELASTICSEARCH_USER_INDEX_BASE: Joi.string()
+    .pattern(/^[a-z0-9_-]+$/)
+    .default('user_directory_search'),
+  ELASTICSEARCH_USER_INDEX_VERSION: Joi.number().integer().min(1).default(1),
+  ELASTICSEARCH_OUTBOX_POLL_MS: Joi.number().integer().min(250).default(1000),
+  ELASTICSEARCH_OUTBOX_BATCH_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000)
+    .default(200),
+
   ACCESS_TOKEN_SECRET: Joi.string().required(),
   OTP_HMAC_SECRET: Joi.string().min(32).optional(),
   ACCESS_TOKEN_EXPIRES_IN: Joi.string()

@@ -62,6 +62,7 @@ redis-cluster-auto/conf/
 **/appendonlydir/
 **/nodes.conf
 uploads/
+database/backups/
 
 # Local scaffolding/debug helpers
 /generate-module*.js

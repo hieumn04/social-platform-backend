@@ -25,6 +25,9 @@ services:
       - DB_HOST=host.docker.internal
 
       - REDIS_HOST=host.docker.internal
+
+      # Elasticsearch shares redis-cluster-net with the API container.
+      - ELASTICSEARCH_NODE=http://instagram-elasticsearch:9200
     networks:
       - redis-cluster-net
 
