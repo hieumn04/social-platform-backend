@@ -191,6 +191,7 @@ DROP TABLE IF EXISTS `inbox_threads`;
 CREATE TABLE `inbox_threads` (
   `id` bigint NOT NULL,
   `viewer_id` bigint NOT NULL,
+  `counterparty_user_id` bigint DEFAULT NULL,
   `thread_fbid` bigint NOT NULL,
   `conversation_id` varchar(255) NOT NULL,
   `thread_key` bigint NOT NULL,
@@ -217,6 +218,8 @@ CREATE TABLE `inbox_threads` (
   KEY `idx_viewer_pinned` (`viewer_id`,`pinned`,`pinned_at`),
   KEY `idx_viewer_folder` (`viewer_id`,`folder`),
   KEY `idx_inbox_thread_query` (`viewer_id`,`system_folder`,`folder`,`pinned`,`pinned_at`,`last_activity_at`),
+  KEY `idx_inbox_direct_counterparty` (`viewer_id`,`counterparty_user_id`,`last_activity_at` DESC),
+  CONSTRAINT `chk_inbox_counterparty_by_subtype` CHECK (((`thread_subtype` = 'IG_ONLY_ONE_TO_ONE') AND (`counterparty_user_id` IS NOT NULL)) OR ((`thread_subtype` <> 'IG_ONLY_ONE_TO_ONE') AND (`counterparty_user_id` IS NULL))),
   CONSTRAINT `FK_0b5b2c8750e293790df5a2afee0` FOREIGN KEY (`viewer_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -540,6 +543,28 @@ CREATE TABLE `users` (
   KEY `idx_users_role_id` (`role_id`),
   CONSTRAINT `FK_a2cecd1a3531c0b041e29ba46e1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`),
   CONSTRAINT `FK_e134fffcefe19f60750bfc3ab87` FOREIGN KEY (`identity_id`) REFERENCES `user_identities` (`identity_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `search_outbox`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `search_outbox` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `aggregate_type` enum('USER') NOT NULL,
+  `aggregate_id` bigint NOT NULL,
+  `event_type` enum('USER_UPSERTED','USER_DELETED') NOT NULL,
+  `payload` json NOT NULL,
+  `status` enum('PENDING','PROCESSING','COMPLETED','FAILED') NOT NULL DEFAULT 'PENDING',
+  `attempt_count` int unsigned NOT NULL DEFAULT '0',
+  `available_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `locked_by` varchar(36) DEFAULT NULL,
+  `locked_at` datetime(6) DEFAULT NULL,
+  `processed_at` datetime(6) DEFAULT NULL,
+  `last_error` varchar(2000) DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_search_outbox_claim` (`status`,`available_at`,`id`),
+  KEY `idx_search_outbox_aggregate` (`aggregate_type`,`aggregate_id`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

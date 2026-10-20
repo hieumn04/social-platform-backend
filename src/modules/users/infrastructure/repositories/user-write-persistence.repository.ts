@@ -145,52 +145,57 @@ export class UserWriteRepositoryImpl implements UserWriteRepository {
   }
 
   async insert(user: User, manager?: EntityManager): Promise<void> {
-    const runner = manager ?? this.dataSource;
     const u = user.toObject();
 
     try {
-      await runner.query(
-        `
-        INSERT INTO users (
-          user_id,
-          identity_id,
-          username,
-          full_name,
-          password_hash,
-          email,
-          phone_number,
-          account_country,
-          role_id,
-          gender,
-          has_anonymous_profile_picture,
-          is_private,
-          is_verified,
-          is_active,
-          is_deleted,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          u.userId,
-          u.identityId,
-          u.username,
-          u.fullName,
-          u.passwordHash.getValue(),
-          u.email?.getValue() ?? null,
-          u.phoneNumber?.getValue() ?? null,
-          u.accountCountry,
-          u.roleId,
-          u.gender,
-          u.hasAnonymousProfilePicture,
-          u.isPrivate,
-          u.isVerified,
-          u.isActive,
-          u.isDeleted,
-          u.createdAt,
-          u.updatedAt,
-        ],
-      );
+      const persist = async (runner: EntityManager) => {
+        await runner.query(
+          `
+          INSERT INTO users (
+            user_id,
+            identity_id,
+            username,
+            full_name,
+            password_hash,
+            email,
+            phone_number,
+            account_country,
+            role_id,
+            gender,
+            has_anonymous_profile_picture,
+            is_private,
+            is_verified,
+            is_active,
+            is_deleted,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          [
+            u.userId,
+            u.identityId,
+            u.username,
+            u.fullName,
+            u.passwordHash.getValue(),
+            u.email?.getValue() ?? null,
+            u.phoneNumber?.getValue() ?? null,
+            u.accountCountry,
+            u.roleId,
+            u.gender,
+            u.hasAnonymousProfilePicture,
+            u.isPrivate,
+            u.isVerified,
+            u.isActive,
+            u.isDeleted,
+            u.createdAt,
+            u.updatedAt,
+          ],
+        );
+        await this.enqueueSearchUpsert(u.userId, runner);
+      };
+
+      if (manager) await persist(manager);
+      else await this.dataSource.transaction(persist);
     } catch (err) {
       this.logger.error('Failed to insert user', {
         userId: u.userId,
@@ -210,7 +215,6 @@ export class UserWriteRepositoryImpl implements UserWriteRepository {
       return;
     }
 
-    const runner = manager ?? this.dataSource;
     const sets: string[] = [];
     const values: unknown[] = [];
 
@@ -227,16 +231,22 @@ export class UserWriteRepositoryImpl implements UserWriteRepository {
     if (sets.length === 0) return;
 
     try {
-      await runner.query(
-        `
-        UPDATE users
-        SET ${sets.join(', ')},
-            updated_at = NOW()
-        WHERE user_id = ?
-          AND is_deleted = false
-        `,
-        [...values, id],
-      );
+      const persist = async (runner: EntityManager) => {
+        await runner.query(
+          `
+          UPDATE users
+          SET ${sets.join(', ')},
+              updated_at = NOW()
+          WHERE user_id = ?
+            AND is_deleted = false
+          `,
+          [...values, id],
+        );
+        await this.enqueueSearchUpsert(id, runner);
+      };
+
+      if (manager) await persist(manager);
+      else await this.dataSource.transaction(persist);
     } catch (err) {
       this.logger.error('Failed to update user', {
         userId: id,
@@ -248,20 +258,57 @@ export class UserWriteRepositoryImpl implements UserWriteRepository {
   }
 
   async softDelete(id: string, manager?: EntityManager): Promise<void> {
-    const runner = manager ?? this.dataSource;
-
     try {
-      await runner.query(
-        `
-        UPDATE users
-        SET is_deleted = true, updated_at = NOW()
-        WHERE user_id = ?
-        `,
-        [id],
-      );
+      const persist = async (runner: EntityManager) => {
+        await runner.query(
+          `
+          UPDATE users
+          SET is_deleted = true, updated_at = NOW()
+          WHERE user_id = ?
+          `,
+          [id],
+        );
+        await runner.query(
+          `INSERT INTO search_outbox
+             (aggregate_type, aggregate_id, event_type, payload)
+           VALUES ('USER', ?, 'USER_DELETED', JSON_OBJECT('user_id', ?))`,
+          [id, id],
+        );
+      };
+
+      if (manager) await persist(manager);
+      else await this.dataSource.transaction(persist);
     } catch (err) {
       this.logger.error('Failed to soft delete user', { userId: id, err });
       throw err;
     }
+  }
+
+  private async enqueueSearchUpsert(
+    userId: string,
+    runner: EntityManager,
+  ): Promise<void> {
+    await runner.query(
+      `INSERT INTO search_outbox
+         (aggregate_type, aggregate_id, event_type, payload)
+       SELECT
+         'USER',
+         u.user_id,
+         'USER_UPSERTED',
+         JSON_OBJECT(
+           'user_id', CAST(u.user_id AS CHAR),
+           'username', LOWER(u.username),
+           'full_name', u.full_name,
+           'avatar_url', u.avatar_url,
+           'is_verified', IF(u.is_verified, true, false),
+           'is_private', IF(u.is_private, true, false),
+           'is_active', IF(u.is_active, true, false),
+           'is_deleted', IF(u.is_deleted, true, false),
+           'updated_at', DATE_FORMAT(u.updated_at, '%Y-%m-%dT%H:%i:%s.%fZ')
+         )
+       FROM users u
+       WHERE u.user_id = ?`,
+      [userId],
+    );
   }
 }

@@ -22,6 +22,7 @@ export type UpdateLastMessageItem = {
 export interface UpsertInboxThreadDto {
   id: string;
   viewerId: string;
+  counterpartyUserId?: string | null;
 
   threadFbid: string;
   conversationId: string;
@@ -43,6 +44,7 @@ export interface UpsertInboxThreadWithLastMessageDto {
   // ==============================
   id: string;
   viewerId: string;
+  counterpartyUserId?: string | null;
 
   threadFbid: string;
   conversationId: string;
@@ -85,6 +87,8 @@ export class InboxThreadWriteRepository {
     manager?: EntityManager,
   ): Promise<void> {
     if (!items.length) return;
+
+    this.assertCounterpartyInvariant(items);
 
     const runner = manager ?? this.dataSource;
 
@@ -139,7 +143,7 @@ export class InboxThreadWriteRepository {
     runner: EntityManager | DataSource,
   ): Promise<void> {
     const placeholders = items
-      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
+      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
       .join(', ');
 
     const values: any[] = [];
@@ -148,6 +152,7 @@ export class InboxThreadWriteRepository {
       values.push(
         item.id,
         item.viewerId,
+        item.counterpartyUserId ?? null,
         item.threadFbid,
         item.conversationId,
         item.threadKey,
@@ -164,6 +169,7 @@ export class InboxThreadWriteRepository {
       INSERT INTO inbox_threads (
         id,
         viewer_id,
+        counterparty_user_id,
         thread_fbid,
         conversation_id,
         thread_key,
@@ -178,6 +184,7 @@ export class InboxThreadWriteRepository {
       )
       VALUES ${placeholders}
       ON DUPLICATE KEY UPDATE
+        counterparty_user_id = VALUES(counterparty_user_id),
         reachability_status = VALUES(reachability_status),
         display_name = COALESCE(VALUES(display_name), display_name),
         display_avatar_url = COALESCE(VALUES(display_avatar_url), display_avatar_url),
@@ -192,6 +199,8 @@ export class InboxThreadWriteRepository {
     manager?: EntityManager,
   ): Promise<void> {
     if (!items.length) return;
+
+    this.assertCounterpartyInvariant(items);
 
     const runner = manager ?? this.dataSource;
 
@@ -254,7 +263,9 @@ export class InboxThreadWriteRepository {
 
     // Build placeholders cho bulk insert
     const placeholders = items
-      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())')
+      .map(
+        () => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+      )
       .join(', ');
 
     // Prepare values
@@ -262,6 +273,7 @@ export class InboxThreadWriteRepository {
       values.push(
         item.id,
         item.viewerId,
+        item.counterpartyUserId ?? null,
         item.threadFbid,
         item.conversationId,
         item.threadKey,
@@ -281,6 +293,7 @@ export class InboxThreadWriteRepository {
     INSERT INTO inbox_threads (
       id,
       viewer_id,
+      counterparty_user_id,
       thread_fbid,
       conversation_id,
       thread_key,
@@ -299,6 +312,7 @@ export class InboxThreadWriteRepository {
     VALUES ${placeholders}
     AS new
     ON DUPLICATE KEY UPDATE
+      counterparty_user_id = new.counterparty_user_id,
       reachability_status = COALESCE(new.reachability_status, inbox_threads.reachability_status),
       display_name       = COALESCE(new.display_name, inbox_threads.display_name),
       display_avatar_url = COALESCE(new.display_avatar_url, inbox_threads.display_avatar_url),
@@ -311,6 +325,24 @@ export class InboxThreadWriteRepository {
   `;
 
     await runner.query(sql, values);
+  }
+
+  private assertCounterpartyInvariant(
+    items: Array<UpsertInboxThreadDto | UpsertInboxThreadWithLastMessageDto>,
+  ): void {
+    for (const item of items) {
+      const isDirect = item.threadSubtype === ConversationSubtype.ONE_TO_ONE;
+      if (isDirect && !item.counterpartyUserId) {
+        throw new Error(
+          `Direct inbox thread requires counterpartyUserId (viewer=${item.viewerId})`,
+        );
+      }
+      if (!isDirect && item.counterpartyUserId != null) {
+        throw new Error(
+          `Non-direct inbox thread must not have counterpartyUserId (viewer=${item.viewerId})`,
+        );
+      }
+    }
   }
 
   /* =====================================================

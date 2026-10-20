@@ -128,6 +128,7 @@ export class SendFirstMessageUseCase {
             {
               id: ids.senderThreadItemId,
               viewerId: senderId,
+              counterpartyUserId: recipientId,
               threadFbid: ids.inboxThreadId,
               conversationId: ids.conversationId,
               threadKey: senderKey,
@@ -144,6 +145,7 @@ export class SendFirstMessageUseCase {
             {
               id: ids.recipientThreadItemId,
               viewerId: recipientId,
+              counterpartyUserId: senderId,
               threadFbid: ids.inboxThreadId,
               conversationId: ids.conversationId,
               threadKey: recipientKey,

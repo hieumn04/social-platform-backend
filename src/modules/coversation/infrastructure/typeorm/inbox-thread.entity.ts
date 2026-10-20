@@ -32,6 +32,11 @@ import {
 ])
 @Index('idx_viewer_folder', ['viewerId', 'folder'])
 @Index('idx_viewer_pinned', ['viewerId', 'pinned', 'pinnedAt'])
+@Index('idx_inbox_direct_counterparty', [
+  'viewerId',
+  'counterpartyUserId',
+  'lastActivityAt',
+])
 @Index('uniq_viewer_thread', ['viewerId', 'threadFbid'], { unique: true })
 export class InboxThreadEntity {
   @PrimaryColumn({ name: 'id', type: 'bigint' })
@@ -46,6 +51,9 @@ export class InboxThreadEntity {
   })
   @JoinColumn({ name: 'viewer_id' })
   viewer!: UserEntity;
+
+  @Column({ name: 'counterparty_user_id', type: 'bigint', nullable: true })
+  counterpartyUserId?: string | null;
 
   @Column({ name: 'thread_fbid', type: 'bigint' })
   threadFbid!: string;
