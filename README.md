@@ -4,14 +4,17 @@
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)
 ![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)
+![Elasticsearch](https://img.shields.io/badge/Elasticsearch-9.3-005571?logo=elasticsearch&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
-A portfolio backend that recreates the engineering-heavy parts of an Instagram-style social product: relationship state, ranked recipient discovery, secure OTP signup, cursor-based direct messaging, private media and realtime delivery.
+A portfolio backend that recreates the engineering-heavy parts of an Instagram-style social product: relationship state, hybrid ranked recipient discovery, secure OTP signup, cursor-based direct messaging, private media and realtime delivery.
 
 ## Why this project is interesting
 
 - **Hybrid API:** REST for auth/search, allowlisted persisted GraphQL for composed social data, and Socket.IO for realtime events.
 - **Two Redis roles:** standalone Redis for OTP/JWT/rate limiting; Redis Cluster for messaging cache, presence and stream delivery.
+- **Hybrid discovery:** Elasticsearch retrieves global username/name candidates while MySQL contributes follow, recent-DM and second-degree relationship signals for deterministic ranking.
+- **Reliable indexing:** user writes and search events share a MySQL transaction; an outbox worker updates versioned Elasticsearch indexes without dual writes.
 - **Reliable messaging:** idempotency keys, opaque cursors, transactional writes, seen watermarks and versioned unread state.
 - **Private media:** direct-to-R2 uploads, server-side `HEAD` verification and short-lived signed delivery URLs.
 
@@ -29,9 +32,11 @@ flowchart LR
 
     subgraph Core[NestJS application]
         UC["Use cases / application services"]
+        Ranker["Recipient candidate merge<br/>and deterministic ranking"]
         Domain["Domain policies"]
         Repo["Repository adapters"]
-        Worker["Redis Stream workers"]
+        StreamWorker["Redis Stream workers"]
+        SearchWorker["Search outbox worker"]
     end
 
     Client --> REST --> UC
@@ -40,12 +45,16 @@ flowchart LR
     WS --> UC
     UC --> Domain
     UC --> Repo
+    UC --> Ranker
 
     Repo --> MySQL[(MySQL)]
+    Ranker --> MySQL
+    Ranker --> ES[(Elasticsearch)]
+    MySQL -- "claim search_outbox" --> SearchWorker --> ES
     UC --> Redis[(Standalone Redis)]
     UC --> Cluster[(Redis Cluster)]
     UC --> R2[(Cloudflare R2)]
-    Cluster --> Worker --> WS
+    Cluster --> StreamWorker --> WS
 ```
 
 ## Tech stack
@@ -55,6 +64,7 @@ flowchart LR
 | Runtime           | Node.js 20, TypeScript 5.7, NestJS 11                         | Modular backend and dependency injection                    |
 | API               | REST, Apollo GraphQL, persisted `doc_id`, Socket.IO           | HTTP, typed composed reads and realtime communication       |
 | Data              | MySQL 8.4, TypeORM, parameterized raw SQL                     | Transactions plus optimized read projections                |
+| Search            | Elasticsearch 9.3, versioned aliases, transactional outbox    | Global candidate retrieval with safe MySQL fallback         |
 | Distributed state | Redis 7.4, Redis Cluster, Redis Streams                       | Auth state, cache, presence, unread state and delivery work |
 | Object storage    | Cloudflare R2, AWS S3 SDK                                     | Presigned private-media upload and delivery                 |
 | Security          | Passport JWT, bcrypt, HttpOnly cookies, Helmet, rate limiting | Authentication and request/session protection               |
@@ -67,7 +77,7 @@ flowchart LR
 | ------------- | -------------------------------------------------------------------------------------------- |
 | Social graph  | Follow public accounts, request private accounts, viewer-relative friendship status          |
 | Profile       | Initial profile by immutable `userID`, privacy, counters and friendship state                |
-| Discovery     | One-character recipient search, existing-thread resolution and share-sheet ranking           |
+| Discovery     | Follow, recent-DM, second-degree and global candidates; deterministic top-10 ranking         |
 | Messaging     | Mailbox/thread reads, opaque cursor pagination, idempotent text/image/inline-share sends     |
 | Message state | Send status, seen watermarks, unread summaries, cache invalidation and Redis Stream delivery |
 | Realtime      | Authenticated Socket.IO, presence, heartbeat and typing events                               |
@@ -110,7 +120,6 @@ flowchart LR
         Hot["Recent messages<br/>Inbox ordering"]
         State["Watermarks · Unread versions<br/>Presence"]
         Async["Redis Streams<br/>Delivery work"]
-        Lock["Lock service<br/>prepared foundation"]
     end
 
     API --> Active
@@ -118,14 +127,13 @@ flowchart LR
     API --> Hot
     API --> State
     API --> Async
-    API -.-> Lock
 ```
 
 Four standalone logical clients are initialized, but current auth/rate-limit paths primarily use `cacheRedis`; the other clients are prepared boundaries. Redis Cluster is active in messaging and realtime state. This distinction is intentional in the documentation so the portfolio does not overclaim implementation scope.
 
 ## Architecture and correctness
 
-Core modules use DDD-style `presentation → application → domain → repository` boundaries. Read-heavy profile/search/ranking paths use parameterized SQL; transactional message and relationship writes use TypeORM repositories and transactions.
+Core modules use DDD-style `presentation → application → domain → repository` boundaries. Read-heavy profile/search/ranking paths use parameterized SQL; transactional message and relationship writes use TypeORM repositories and transactions. Recipient discovery retrieves candidates from relationship-aware MySQL projections and Elasticsearch in parallel, then rehydrates authorized users from MySQL before applying the final ranking.
 
 Key correctness decisions:
 
@@ -133,6 +141,8 @@ Key correctness decisions:
 - `offline_threading_id` prevents duplicate messages during client retries.
 - Message history uses opaque cursors instead of unstable offset pagination.
 - Stable object keys are cached; expiring private delivery URLs are generated after cache reads.
+- Recipient ranking prioritizes lexical match, followed users, recent Direct threads, mutual connections, interaction scores and Elasticsearch relevance, and returns at most ten results.
+- The `search_outbox` table keeps user persistence and index updates atomic; versioned read/write aliases support controlled backfills and future reindexing.
 - Media becomes attached only after membership checks and R2 object verification.
 - Signup keeps its opaque session in a scoped `HttpOnly; SameSite=Strict` cookie.
 - Redis stores an HMAC of the OTP and a hash of the signup session token.
@@ -165,6 +175,8 @@ cd ..
 
 > The cluster script recreates local cluster containers and generated cluster data. Use it only to initialize or intentionally rebuild the development cluster.
 
+Keep `ELASTICSEARCH_READ_ENABLED=false` while the outbox backfill is draining. Enable reads only after the index document count and outbox status have been verified; recipient search falls back to an indexed MySQL username exact/prefix query while Elasticsearch reads are unavailable.
+
 Start the API:
 
 ```powershell
@@ -188,7 +200,7 @@ npm run test:e2e -- --runInBand
 docker build -t instagram-style-social-backend .
 ```
 
-- **25/25 unit suites — 79/79 tests**
+- **27/27 unit suites — 84/84 tests**
 - **1/1 E2E suite — 2/2 tests**
 - CI verifies install, build, tests and the production Docker image
 
