@@ -28,7 +28,7 @@ export class RedisStreamService implements OnModuleDestroy {
 
   private subscriberClient?: Cluster;
 
-  constructor(private readonly redis: RedisClusterService) {}
+  constructor(private readonly redis: RedisClusterService) { }
 
   get client(): Cluster {
     return this.redis.raw;
@@ -93,9 +93,21 @@ export class RedisStreamService implements OnModuleDestroy {
     event: AppEvent,
     options?: { maxLen?: number; skipIdempotent?: boolean },
   ): Promise<string> {
-    const { maxLen = 10000 } = options || {};
+    const { maxLen = 10000, skipIdempotent = false } = options || {};
 
     if (!event?.eventId) throw new Error('eventId required');
+
+    const lockKey = `{${stream}}:idempotent:${event.eventId}`;
+
+    if (!skipIdempotent) {
+      const acquired = await this.acquireLock(lockKey);
+      if (!acquired) {
+        this.logger.warn(
+          `[PRODUCE DUPLICATE] Bỏ qua event trùng: ${event.eventId} trên stream: ${stream}`,
+        );
+        return 'DUPLICATE_IGNORED';
+      }
+    }
 
     const envelope: AppEvent = {
       ...event,
@@ -104,21 +116,28 @@ export class RedisStreamService implements OnModuleDestroy {
       retryCount: event.retryCount ?? 0,
     };
 
-    const id = await this.client.xadd(
-      stream,
-      'MAXLEN',
-      '~',
-      maxLen,
-      '*',
-      'event',
-      JSON.stringify(envelope),
-    );
+    try {
+      const id = await this.client.xadd(
+        stream,
+        'MAXLEN',
+        '~',
+        maxLen,
+        '*',
+        'event',
+        JSON.stringify(envelope),
+      );
 
-    if (!id) throw new Error('XADD failed');
+      if (!id) throw new Error('XADD failed');
 
-    this.logger.debug(`[PRODUCE] ${event.eventId} seq=${id}`);
+      this.logger.debug(`[PRODUCE] ${event.eventId} seq=${id}`);
 
-    return id;
+      return id;
+    } catch (err) {
+      if (!skipIdempotent) {
+        await this.client.del(lockKey).catch(() => { });
+      }
+      throw err;
+    }
   }
 
   // ---------------- CONSUMER ----------------

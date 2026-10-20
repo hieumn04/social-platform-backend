@@ -63,8 +63,7 @@ export class SendNormalMessageUseCase {
     const now = new Date(timestampMs);
     const messageId = generatedMessage.id;
 
-    // 🔥 SINGLE SOURCE
-    // 🔹 resolve conversation
+
     let conversationId = await this.cache.getConversationId(threadFbid);
     if (!conversationId) {
       conversationId =
@@ -115,7 +114,7 @@ export class SendNormalMessageUseCase {
       let persistedTimestampMs = timestampMs;
 
       await this.dataSource.transaction(async (trx: EntityManager) => {
-        // 🔹 insert message
+
         const messageDto = MessageRawMapper.mapToInsertMessageDto(baseInput, {
           messageId,
           threadId: conversationId,
@@ -135,7 +134,7 @@ export class SendNormalMessageUseCase {
           await this.mediaRepo.attachUploads(messageId, prepared.uploads, trx);
         }
 
-        // 🔹 update thread
+
         if (inserted) {
           await this.inboxThreadWriteRepo.updateLastMessageByThread(
             threadFbid,
@@ -162,9 +161,7 @@ export class SendNormalMessageUseCase {
         `[PERF_TIMER] DB Transaction took: ${Date.now() - t0}ms`,
       );
 
-      // The transaction is committed at this point. Advancing the generation
-      // makes every cached latest-page key from before this message obsolete.
-      // 🔥 Cập nhật Redis Cache-First Inbox Order bất đồng bộ (non-blocking)
+
       void this.updateInboxCacheAndOrder({
         conversationId,
         threadFbid,
@@ -177,7 +174,7 @@ export class SendNormalMessageUseCase {
         }),
       );
 
-      // 🔥 Event dùng baseInput
+
       const deliveryPayload =
         await this.contentPreparation.hydratePayloadForDelivery(
           prepared.contentType,
