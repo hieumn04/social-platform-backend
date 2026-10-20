@@ -73,16 +73,16 @@ flowchart LR
 
 ## Implemented features
 
-| Area          | Working scope                                                                                |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| Social graph  | Follow public accounts, request private accounts, viewer-relative friendship status          |
-| Profile       | Initial profile by immutable `userID`, privacy, counters and friendship state                |
-| Discovery     | Follow, recent-DM, second-degree and global candidates; deterministic top-10 ranking         |
-| Messaging     | Mailbox/thread reads, opaque cursor pagination, idempotent text/image/inline-share sends     |
-| Message state | Send status, seen watermarks, unread summaries, cache invalidation and Redis Stream delivery |
-| Realtime      | Authenticated Socket.IO, presence, heartbeat and typing events                               |
-| Signup        | Username availability, OTP request/status/resend/verify, account registration                |
-| Media         | Presigned R2 upload, MIME/size/dimension checks, `HEAD` verification and signed reads        |
+| Area               | Working scope                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| Social graph       | Follow public accounts, request private accounts, viewer-relative friendship status                |
+| Profile            | Initial profile by immutable `userID`, privacy, counters and friendship state                      |
+| Search & discovery | Follow, recent-DM, second-degree and Elasticsearch global candidates; deterministic top-10 ranking |
+| Messaging          | Mailbox/thread reads, opaque cursor pagination, idempotent text/image/inline-share sends           |
+| Message state      | Send status, seen watermarks, unread summaries, cache invalidation and Redis Stream delivery       |
+| Realtime           | Authenticated Socket.IO, presence, heartbeat and typing events                                     |
+| Signup             | Username availability, OTP request/status/resend/verify, account registration                      |
+| Media              | Presigned R2 upload, MIME/size/dimension checks, `HEAD` verification and signed reads              |
 
 ## API design
 
